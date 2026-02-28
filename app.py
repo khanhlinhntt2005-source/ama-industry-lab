@@ -4,162 +4,231 @@ import pandas as pd
 import plotly.graph_objects as go
 import random
 
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide", page_title="AMA Industry Simulation Full")
 
 # ============================================
-# INITIAL STATE
+# INITIALIZATION
 # ============================================
 
-if "initialized" not in st.session_state:
-    st.session_state.initialized = True
+if "phase" not in st.session_state:
+    st.session_state.phase = "pre"
+    st.session_state.day = 0
     st.session_state.cash = 100_000_000
     st.session_state.fame = 0.2
     st.session_state.trust = 0.3
-    st.session_state.fatigue = 0.0
     st.session_state.sentiment = 0.5
-    st.session_state.day = 0
-
-    st.session_state.history = {
-        "cash": [],
-        "fame": [],
-        "trust": [],
-        "views": [],
-        "retention": [],
-        "sentiment": [],
-        "fatigue": [],
-        "merch": [],
-        "sponsor": [],
-        "engagement": []
-    }
-
-# ============================================
-# CORE ENGINE
-# ============================================
-
-def simulate_day(activity_effect):
-
-    base_market = 200_000
+    st.session_state.fatigue = 0.0
     
-    fluctuation = np.random.normal(1, 0.1)
-    fatigue_penalty = 1 - st.session_state.fatigue
-
-    impressions = base_market * st.session_state.trust * fluctuation
-    ctr = 0.04 + 0.02 * st.session_state.fame
-    views = impressions * ctr
-
-    retention = 0.5 + 0.2 * st.session_state.sentiment
-    retention *= fatigue_penalty
-
-    engagement = views * retention
-
-    merch = engagement * 0.02 * 100_000
-    sponsor = 0
-
-    if engagement > 50000 and st.session_state.sentiment > 0.6:
-        sponsor = 10_000_000
-
-    revenue = views * 500 + merch + sponsor
-
-    # Apply activity effect
-    st.session_state.fame += activity_effect["fame"]
-    st.session_state.trust += activity_effect["trust"]
-    st.session_state.sentiment += activity_effect["sentiment"]
-    st.session_state.fatigue += activity_effect["fatigue"]
-
-    st.session_state.fatigue = min(0.5, max(0, st.session_state.fatigue))
-    st.session_state.sentiment = min(1, max(0, st.session_state.sentiment))
-    st.session_state.trust = min(1.5, max(0.1, st.session_state.trust))
-    st.session_state.fame = min(2, max(0, st.session_state.fame))
-
-    st.session_state.cash += revenue
-
-    st.session_state.day += 1
-
-    # Save history
-    st.session_state.history["cash"].append(st.session_state.cash)
-    st.session_state.history["fame"].append(st.session_state.fame)
-    st.session_state.history["trust"].append(st.session_state.trust)
-    st.session_state.history["views"].append(views)
-    st.session_state.history["retention"].append(retention)
-    st.session_state.history["sentiment"].append(st.session_state.sentiment)
-    st.session_state.history["fatigue"].append(st.session_state.fatigue)
-    st.session_state.history["merch"].append(merch)
-    st.session_state.history["sponsor"].append(sponsor)
-    st.session_state.history["engagement"].append(engagement)
-
+    st.session_state.history_pre = []
+    st.session_state.history_post = []
 
 # ============================================
-# DASHBOARD
+# HEADER
 # ============================================
 
-st.title("🎬 AMA Industry Simulation – Loop Model")
+st.title("🎬 AMA Industry Simulation – Full System")
 
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 col1.metric("Tiền", f"{int(st.session_state.cash):,} VND")
 col2.metric("Fame", round(st.session_state.fame,2))
 col3.metric("Trust", round(st.session_state.trust,2))
+col4.metric("Sentiment", round(st.session_state.sentiment,2))
 
-st.write("Ngày:", st.session_state.day)
+st.write("Phase:", st.session_state.phase.upper())
 
 st.divider()
 
 # ============================================
-# ACTIVITY PAGES
+# PHASE 1 – PRE RELEASE LOOP
 # ============================================
 
-activity = st.selectbox("Chọn hoạt động", [
-    "Minishow (15M)",
-    "Chạy Ads (10M)",
-    "Collab (miễn phí)",
-    "Thuê Mentor (5M)",
-    "Nghỉ ngơi (giảm fatigue)"
-])
+if st.session_state.phase == "pre":
 
-if st.button("Thực hiện hoạt động"):
+    st.subheader(f"📆 Ngày {st.session_state.day + 1} / 14")
 
-    if activity == "Minishow (15M)":
-        st.session_state.cash -= 15_000_000
-        effect = {"fame":0.1, "trust":0.05, "sentiment":0.1, "fatigue":0.1}
+    activity = st.selectbox("Chọn hoạt động", [
+        "Minishow (15M)",
+        "Chạy Ads (10M)",
+        "Spam Ads (20M)",
+        "Collab",
+        "Thuê Mentor (5M)",
+        "Nghỉ ngơi",
+        "Scandal PR"
+    ])
 
-    elif activity == "Chạy Ads (10M)":
-        st.session_state.cash -= 10_000_000
-        effect = {"fame":0.05, "trust":0.1, "sentiment":0.02, "fatigue":0.05}
+    if st.button("Thực hiện"):
 
-    elif activity == "Collab (miễn phí)":
-        effect = {"fame":0.15, "trust":0.08, "sentiment":0.05, "fatigue":0.1}
+        effect = {"fame":0,"trust":0,"sentiment":0,"fatigue":0}
 
-    elif activity == "Thuê Mentor (5M)":
-        st.session_state.cash -= 5_000_000
-        effect = {"fame":0.02, "trust":0.03, "sentiment":0.1, "fatigue":0.02}
+        if activity == "Minishow (15M)":
+            st.session_state.cash -= 15_000_000
+            ticket_success = random.random() < st.session_state.fame
+            if ticket_success:
+                effect = {"fame":0.1,"trust":0.05,"sentiment":0.1,"fatigue":0.1}
+                st.success("Minishow thành công!")
+            else:
+                effect = {"fame":0.05,"trust":-0.05,"sentiment":-0.1,"fatigue":0.1}
+                st.warning("Minishow bán vé kém!")
 
-    else:
-        effect = {"fame":0, "trust":0, "sentiment":0.05, "fatigue":-0.1}
+        elif activity == "Chạy Ads (10M)":
+            st.session_state.cash -= 10_000_000
+            effect = {"fame":0.05,"trust":0.05,"sentiment":0.02,"fatigue":0.05}
 
-    simulate_day(effect)
+        elif activity == "Spam Ads (20M)":
+            st.session_state.cash -= 20_000_000
+            effect = {"fame":0.1,"trust":-0.1,"sentiment":-0.15,"fatigue":0.15}
+
+        elif activity == "Collab":
+            overlap = random.random()
+            if overlap > 0.5:
+                effect = {"fame":0.15,"trust":0.08,"sentiment":0.05,"fatigue":0.1}
+            else:
+                effect = {"fame":0.1,"trust":-0.05,"sentiment":-0.1,"fatigue":0.1}
+
+        elif activity == "Thuê Mentor (5M)":
+            st.session_state.cash -= 5_000_000
+            effect = {"fame":0.02,"trust":0.03,"sentiment":0.1,"fatigue":0.02}
+
+        elif activity == "Scandal PR":
+            effect = {"fame":0.2,"trust":-0.2,"sentiment":-0.3,"fatigue":0.2}
+
+        else:
+            effect = {"fame":0,"trust":0.02,"sentiment":0.1,"fatigue":-0.1}
+
+        # Update state
+        for key in effect:
+            setattr(st.session_state, key,
+                    max(0, getattr(st.session_state, key) + effect[key]))
+
+        st.session_state.day += 1
+
+        st.session_state.history_pre.append({
+            "day": st.session_state.day,
+            "cash": st.session_state.cash,
+            "fame": st.session_state.fame,
+            "trust": st.session_state.trust,
+            "sentiment": st.session_state.sentiment,
+            "fatigue": st.session_state.fatigue
+        })
+
+        if st.session_state.day >= 14:
+            st.session_state.phase = "rating"
 
 # ============================================
-# 10 GRAPHS
+# PHASE 2 – RATING
 # ============================================
 
-if st.session_state.day > 0:
+if st.session_state.phase == "rating":
 
-    df = pd.DataFrame(st.session_state.history)
+    st.subheader("🏁 Nhập điểm giám khảo")
 
-    graphs = [
-        ("Tiền", df["cash"]),
-        ("Fame", df["fame"]),
-        ("Trust", df["trust"]),
-        ("Views", df["views"]),
-        ("Retention", df["retention"]),
-        ("Sentiment", df["sentiment"]),
-        ("Fatigue", df["fatigue"]),
-        ("Merch Revenue", df["merch"]),
-        ("Sponsor Revenue", df["sponsor"]),
-        ("Engagement", df["engagement"]),
-    ]
+    narrative = st.slider("Narrative",0.0,1.0,0.7)
+    visual = st.slider("Visual",0.0,1.0,0.7)
+    emotion = st.slider("Emotion",0.0,1.0,0.7)
+    technical = st.slider("Technical",0.0,1.0,0.7)
+    market_fit = st.slider("Market Fit",0.0,1.0,0.7)
+    originality = st.slider("Originality",0.0,1.0,0.7)
 
-    for title, data in graphs:
+    if st.button("Chuyển sang mô phỏng thị trường"):
+        st.session_state.rating = {
+            "narrative": narrative,
+            "visual": visual,
+            "emotion": emotion,
+            "technical": technical,
+            "market_fit": market_fit,
+            "originality": originality
+        }
+        st.session_state.phase = "post"
+
+# ============================================
+# PHASE 3 – POST RELEASE LOOP (60 DAYS)
+# ============================================
+
+if st.session_state.phase == "post":
+
+    st.subheader("📈 Mô phỏng 60 ngày thị trường")
+
+    rating = st.session_state.rating
+    capital = st.session_state.cash
+    trust = st.session_state.trust
+    fame = st.session_state.fame
+    sentiment = st.session_state.sentiment
+    fatigue = st.session_state.fatigue
+
+    sponsor_unlocked = False
+
+    for day in range(60):
+
+        fluctuation = np.random.normal(1,0.08)
+        decay = 0.98
+
+        attention = 200_000 * trust * (1+fame) * fluctuation * (1-fatigue)
+        ctr = 0.04 + 0.02*rating["visual"]
+        retention = 0.5 + 0.3*rating["narrative"] + 0.2*rating["emotion"]
+
+        views = attention * ctr
+        engagement = views * retention
+        streaming = views * 500
+        merch = engagement * 0.02 * 100_000
+
+        sponsor = 0
+        if not sponsor_unlocked and retention > 0.7 and sentiment > 0.6:
+            sponsor_unlocked = True
+            sponsor = 20_000_000
+
+        revenue = streaming + merch + sponsor
+        capital += revenue
+
+        trust *= decay
+        fame *= decay
+        fatigue = min(0.5, fatigue + 0.01)
+
+        st.session_state.history_post.append({
+            "day": day,
+            "capital": capital,
+            "views": views,
+            "retention": retention,
+            "streaming": streaming,
+            "merch": merch,
+            "sponsor": sponsor,
+            "trust": trust,
+            "fame": fame,
+            "fatigue": fatigue
+        })
+
+    df = pd.DataFrame(st.session_state.history_post)
+
+    # ============================================
+    # VISUALIZATION (12 GRAPHS)
+    # ============================================
+
+    charts = {
+        "Capital": df["capital"],
+        "Views": df["views"],
+        "Retention": df["retention"],
+        "Streaming": df["streaming"],
+        "Merch": df["merch"],
+        "Sponsor": df["sponsor"],
+        "Trust": df["trust"],
+        "Fame": df["fame"],
+        "Fatigue": df["fatigue"]
+    }
+
+    for title, data in charts.items():
         fig = go.Figure()
-        fig.add_trace(go.Scatter(y=data, mode="lines+markers"))
+        fig.add_trace(go.Scatter(y=data, mode="lines"))
         fig.update_layout(title=title, template="plotly_dark")
         st.plotly_chart(fig, use_container_width=True)
+
+    st.metric("Vốn cuối cùng", f"{int(capital):,} VND")
+
+    # Monte Carlo
+    outcomes = []
+    for _ in range(300):
+        sim = capital * np.random.normal(1,0.1)
+        outcomes.append(sim)
+
+    fig = go.Figure()
+    fig.add_trace(go.Histogram(x=outcomes))
+    fig.update_layout(title="Monte Carlo Risk Distribution", template="plotly_dark")
+    st.plotly_chart(fig, use_container_width=True)
