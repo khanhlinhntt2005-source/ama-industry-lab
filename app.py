@@ -1,132 +1,183 @@
 import streamlit as st
-import plotly.graph_objects as go
 import numpy as np
+import plotly.graph_objects as go
+import random
 
-st.set_page_config(layout="wide", page_title="AMA Decision Lab")
+st.set_page_config(layout="wide", page_title="AMA Industry Simulation")
 
-# ==========================
-# INITIAL STATE
-# ==========================
+# ===============================
+# INITIALIZATION
+# ===============================
 
-if "init" not in st.session_state:
-    st.session_state.init = True
+if "round" not in st.session_state:
+    st.session_state.round = 1
     st.session_state.cash = 100_000_000
-    
-    st.session_state.competence = {
-        "Narrative": 0.5,
-        "Visual": 0.5,
-        "Emotion": 0.5,
-        "Technical": 0.5,
-        "Strategy": 0.5,
-        "Originality": 0.5
-    }
+    st.session_state.fame = 0.0
+    st.session_state.trust = 0.2
+    st.session_state.brand = 0.1
+    st.session_state.history = []
 
-# ==========================
-# FORMAT
-# ==========================
+# ===============================
+# HEADER
+# ===============================
 
-def vnd(x):
-    return f"{int(x):,} VND"
-
-st.title("🎬 AMA Creative Decision Lab")
-
-st.subheader("💰 Capital Status")
-st.metric("Remaining Budget", vnd(st.session_state.cash))
-
-st.divider()
-
-# ==========================
-# ACTION PANELS
-# ==========================
-
-st.subheader("🛠 Strategic Actions")
+st.title("🎬 AMA Creative Economy Simulation")
+st.subheader(f"Round {st.session_state.round}")
 
 col1, col2, col3 = st.columns(3)
-
-# PRODUCTION
-with col1:
-    st.markdown("### 🎥 Production Upgrade")
-    prod = st.slider("Investment", 0, 40_000_000, 0, 5_000_000)
-    if st.button("Apply Production"):
-        if prod <= st.session_state.cash:
-            st.session_state.cash -= prod
-            factor = np.sqrt(prod / 10_000_000)
-            st.session_state.competence["Technical"] += 0.08 * factor
-            st.session_state.competence["Visual"] += 0.06 * factor
-
-# MENTOR
-with col2:
-    st.markdown("### 🧠 Hire Mentor (15M)")
-    if st.button("Hire Mentor"):
-        if 15_000_000 <= st.session_state.cash:
-            st.session_state.cash -= 15_000_000
-            st.session_state.competence["Narrative"] += 0.1
-            st.session_state.competence["Strategy"] += 0.08
-            st.session_state.competence["Originality"] -= 0.05
-
-# MARKETING
-with col3:
-    st.markdown("### 📢 Marketing Push")
-    mkt = st.slider("Ad Budget", 0, 40_000_000, 0, 5_000_000)
-    if st.button("Run Ads"):
-        if mkt <= st.session_state.cash:
-            st.session_state.cash -= mkt
-            st.session_state.competence["Strategy"] += 0.05 * np.log1p(mkt/10_000_000)
+col1.metric("Cash", f"{int(st.session_state.cash):,} VND")
+col2.metric("Fame", round(st.session_state.fame,2))
+col3.metric("Algorithm Trust", round(st.session_state.trust,2))
 
 st.divider()
 
-# ==========================
-# VISUALIZATION
-# ==========================
+# ===============================
+# DECISION PHASE
+# ===============================
 
-st.subheader("📊 Competence Projection")
+st.header("📊 Decision Phase")
 
-categories = list(st.session_state.competence.keys())
-values = list(st.session_state.competence.values())
+colA, colB, colC = st.columns(3)
 
-fig = go.Figure()
+with colA:
+    st.subheader("Creative")
+    production = st.selectbox("Production Level",
+                               ["Low (10M)", "Medium (25M)", "High (40M)"])
+    mentor = st.checkbox("Hire Mentor (15M)")
+    direction = st.selectbox("Artistic Direction",
+                             ["Indie", "Structured", "Commercial"])
 
-fig.add_trace(go.Scatterpolar(
-    r=values,
-    theta=categories,
-    fill='toself',
-    name='Current Competence'
-))
+with colB:
+    st.subheader("Marketing")
+    ads = st.selectbox("Ads Budget",
+                       ["Low (5M)", "Medium (15M)", "High (30M)"])
+    influencer = st.checkbox("Influencer Campaign (20M)")
 
-fig.update_layout(
-    polar=dict(radialaxis=dict(visible=True, range=[0,1])),
-    showlegend=False
-)
+with colC:
+    st.subheader("Financial")
+    reserve = st.slider("Reserve Cash (%)", 0, 50, 10)
 
-st.plotly_chart(fig, use_container_width=True)
+# ===============================
+# LOCK DECISION
+# ===============================
 
-st.divider()
+if st.button("🔒 Lock Decision & Run Market"):
 
-# ==========================
-# JUDGE INPUT
-# ==========================
+    # -----------------------
+    # CAPITAL COST
+    # -----------------------
 
-st.subheader("🏁 Final Evaluation (Judge Input)")
+    cost_map = {
+        "Low (10M)": 10_000_000,
+        "Medium (25M)": 25_000_000,
+        "High (40M)": 40_000_000
+    }
 
-judge_scores = {}
+    ad_map = {
+        "Low (5M)": 5_000_000,
+        "Medium (15M)": 15_000_000,
+        "High (30M)": 30_000_000
+    }
 
-for key in categories:
-    judge_scores[key] = st.slider(f"{key} Score", 0.0, 1.0, 0.5)
+    total_cost = cost_map[production] + ad_map[ads]
 
-if st.button("Compute Outcome"):
+    if mentor:
+        total_cost += 15_000_000
+    if influencer:
+        total_cost += 20_000_000
 
-    avg_score = np.mean(list(judge_scores.values()))
-    capital_efficiency = avg_score / (100_000_000 - st.session_state.cash + 1)
+    if total_cost > st.session_state.cash:
+        st.error("Not enough capital.")
+    else:
 
-    st.metric("Final Creative Score", round(avg_score,2))
-    st.metric("Capital Efficiency", round(capital_efficiency,6))
+        st.session_state.cash -= total_cost
 
-    growth = avg_score - np.mean(values)
-    st.metric("Competence Growth vs Projection", round(growth,2))
+        # -----------------------
+        # CREATIVE IMPACT
+        # -----------------------
 
-st.divider()
+        quality = 0.5
+        originality = 0.5
 
-if st.button("Reset"):
+        if production == "High (40M)":
+            quality += 0.2
+        elif production == "Medium (25M)":
+            quality += 0.1
+
+        if direction == "Indie":
+            originality += 0.2
+        elif direction == "Commercial":
+            originality -= 0.1
+            quality += 0.1
+
+        if mentor:
+            quality += 0.1
+            originality -= 0.05
+
+        # -----------------------
+        # MARKET ENGINE
+        # -----------------------
+
+        attention_pool = 100_000
+
+        ctr = 0.03 + 0.04 * originality + 0.02 * st.session_state.fame
+        watch = 0.4 + 0.4 * quality
+
+        impressions = attention_pool * st.session_state.trust
+        impressions += ad_map[ads] / 1000
+
+        views = impressions * ctr
+
+        performance = ctr * watch
+
+        # Algorithm update
+        st.session_state.trust += 0.1 * (performance - 0.05)
+        st.session_state.trust = max(0.05, min(1.0, st.session_state.trust))
+
+        # Fame growth
+        if performance > 0.06:
+            st.session_state.fame += 0.02
+
+        revenue = views * 500
+        st.session_state.cash += revenue
+
+        # Brand update
+        st.session_state.brand += 0.02 * quality
+
+        # Save history
+        st.session_state.history.append({
+            "views": views,
+            "revenue": revenue,
+            "trust": st.session_state.trust,
+            "fame": st.session_state.fame
+        })
+
+        st.success("Round Complete!")
+
+        st.session_state.round += 1
+
+# ===============================
+# PERFORMANCE DASHBOARD
+# ===============================
+
+if len(st.session_state.history) > 0:
+
+    st.header("📈 Performance Dashboard")
+
+    views_history = [h["views"] for h in st.session_state.history]
+    revenue_history = [h["revenue"] for h in st.session_state.history]
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=views_history, mode='lines+markers', name='Views'))
+    fig.add_trace(go.Scatter(y=revenue_history, mode='lines+markers', name='Revenue'))
+    fig.update_layout(title="Performance Over Rounds")
+    st.plotly_chart(fig, use_container_width=True)
+
+# ===============================
+# RESET
+# ===============================
+
+if st.button("Reset Simulation"):
     for key in list(st.session_state.keys()):
         del st.session_state[key]
     st.rerun()
