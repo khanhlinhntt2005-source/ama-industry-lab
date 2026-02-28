@@ -1,128 +1,151 @@
-import streamlit as st
 import numpy as np
-import math
 import random
-import matplotlib.pyplot as plt
+import math
 
-st.set_page_config(layout="wide")
-st.title("🎬 AMA YouTube Interactive Simulation")
+class Team:
 
-# =========================
-# FORMAT FUNCTION
-# =========================
+    def __init__(self, name):
+        self.name = name
 
-def format_vnd(x):
-    return f"{int(x):,} VND"
+        # Capital
+        self.cash = 100_000_000
 
-# =========================
-# INITIALIZE STATE
-# =========================
+        # Creative baseline
+        self.quality = 0.7
+        self.originality = 0.7
+        self.audience_fit = 0.6
+        self.technical = 0.75
 
-if "day" not in st.session_state:
-    st.session_state.day = 0
-    st.session_state.views = 10000
-    st.session_state.subs = 0
-    st.session_state.revenue = 0
-    st.session_state.sentiment = 0.5
+        # Fame & algorithm state
+        self.fame = 0.0
+        self.trust = 0.2
+        self.sentiment = 0.5
 
-# =========================
-# INITIAL INPUT (ONLY DAY 0)
-# =========================
+        self.subscribers = 0
+        self.brand_equity = 0.0
 
-if st.session_state.day == 0:
-    st.header("🎨 Initial Creative Setup")
+        # Investment buckets
+        self.production = 0
+        self.marketing = 0
+        self.mentor = False
 
-    st.session_state.story = st.slider("Story",1,10,7)
-    st.session_state.narrative = st.slider("Narrative",1,10,8)
-    st.session_state.visual = st.slider("Visual",1,10,8)
-    st.session_state.emotion = st.slider("Emotion",1,10,8)
-    st.session_state.originality = st.slider("Originality",1,10,7)
+    # ----------------------------------------
+    # Capital allocation
+    # ----------------------------------------
 
-    st.session_state.production = st.slider("Production Budget",5_000_000,80_000_000,30_000_000,5_000_000)
-    st.session_state.marketing = st.slider("Marketing Budget",0,80_000_000,20_000_000,5_000_000)
-    st.session_state.equity = st.slider("Investor Equity %",0.0,0.5,0.0,0.05)
+    def allocate(self, production, marketing, mentor=False):
 
-    if st.button("🚀 Launch Video"):
-        st.session_state.day = 1
+        total = production + marketing
+        if total > self.cash:
+            raise ValueError("Not enough capital")
 
-# =========================
-# DAILY SIMULATION
-# =========================
+        self.cash -= total
 
-if st.session_state.day > 0:
+        self.production = production
+        self.marketing = marketing
+        self.mentor = mentor
 
-    st.header(f"📅 Day {st.session_state.day}")
+        # Effects
+        self.technical += 0.05 * math.sqrt(production / 10_000_000)
+        self.quality += 0.05 * math.sqrt(production / 10_000_000)
 
-    st.subheader("🛠 Daily Intervention")
+        if mentor:
+            self.quality += 0.05
+            self.originality -= 0.05
 
-    boost_ads = st.checkbox("Run Extra Ads Today (+Growth, -Sentiment)")
-    drop_content = st.checkbox("Drop Behind-the-Scenes (+Engagement)")
-    influencer = st.checkbox("Pay Influencer Boost")
+    # ----------------------------------------
+    # Expected metrics
+    # ----------------------------------------
 
-    # Core quality
-    quality = (
-        0.25*st.session_state.narrative +
-        0.2*st.session_state.emotion +
-        0.2*st.session_state.visual +
-        0.2*st.session_state.originality +
-        0.15*st.session_state.story
-    ) / 10
+    def expected_ctr(self):
+        return 0.03 + 0.04 * self.originality + 0.02 * self.fame
 
-    retention = (st.session_state.narrative + st.session_state.emotion)/20
+    def expected_watch(self):
+        return 0.3 + 0.5 * self.quality
 
-    # Organic growth
-    growth = st.session_state.views * (0.05 * retention)
+    def expected_impressions(self):
+        base = 2000 + 8000 * self.trust
+        marketing_boost = 2000 * math.log1p(self.marketing / 10_000_000)
+        return base + marketing_boost
 
-    # Algorithm boost
-    algo = st.session_state.views * (0.03 * quality)
+    # ----------------------------------------
+    # Daily simulation
+    # ----------------------------------------
 
-    # Decay
-    decay = st.session_state.views * 0.08
+    def simulate_day(self, market_attention):
 
-    # Interventions
-    if boost_ads:
-        growth *= 1.5
-        st.session_state.sentiment -= 0.05
+        exp_impr = min(self.expected_impressions(), market_attention)
 
-    if drop_content:
-        retention *= 1.2
-        st.session_state.sentiment += 0.03
+        exp_ctr = self.expected_ctr()
+        exp_watch = self.expected_watch()
 
-    if influencer:
-        growth *= 1.3
+        impressions = np.random.normal(exp_impr, exp_impr * 0.1)
+        ctr = np.random.normal(exp_ctr, 0.005)
+        watch = np.random.normal(exp_watch, 0.05)
 
-    # Sentiment bounds
-    st.session_state.sentiment = max(0, min(1, st.session_state.sentiment))
+        impressions = max(500, impressions)
+        ctr = max(0.01, min(0.15, ctr))
+        watch = max(0.1, min(0.9, watch))
 
-    noise = np.random.normal(0, st.session_state.views * 0.02)
+        views = impressions * ctr
 
-    new_views = max(
-        1000,
-        st.session_state.views + growth + algo - decay + noise
-    )
+        performance = (ctr * watch) / (exp_ctr * exp_watch)
 
-    new_subs = new_views * 0.01 * retention
+        self.trust += 0.05 * (performance - 1)
+        self.trust = max(0.05, min(1.0, self.trust))
 
-    daily_revenue = new_views * 500
+        if performance > 1.1:
+            self.fame += 0.01 * performance
 
-    # Update state
-    st.session_state.views = new_views
-    st.session_state.subs += new_subs
-    st.session_state.revenue += daily_revenue
+        revenue = views * 500
+        self.cash += revenue
 
-    # Display metrics
-    col1, col2, col3 = st.columns(3)
+        new_subs = views * 0.01 * self.sentiment
+        self.subscribers += new_subs
 
-    col1.metric("Views Today", f"{int(new_views):,}")
-    col2.metric("Total Subscribers", f"{int(st.session_state.subs):,}")
-    col3.metric("Total Revenue", format_vnd(st.session_state.revenue))
+        self.brand_equity += 0.01 * (self.fame + self.sentiment)
 
-    st.progress(st.session_state.sentiment)
+        return views, revenue
 
-    if st.button("➡ Next Day"):
-        st.session_state.day += 1
 
-    if st.button("🔄 Reset Simulation"):
-        for key in st.session_state.keys():
-            del st.session_state[key]
-        st.rerun()
+# ----------------------------------------
+# MARKET SIMULATION
+# ----------------------------------------
+
+def run_market(days=60):
+
+    teams = [
+        Team("Team A"),
+        Team("Team B")
+    ]
+
+    # Allocate differently
+    teams[0].allocate(40_000_000, 30_000_000, mentor=True)
+    teams[1].allocate(20_000_000, 50_000_000, mentor=False)
+
+    market_attention = 50_000
+
+    for day in range(days):
+
+        for team in teams:
+            views, revenue = team.simulate_day(market_attention)
+
+        # attention limited pool
+        market_attention = 50_000 + random.randint(-5000, 5000)
+
+    return teams
+
+
+# ----------------------------------------
+# RUN
+# ----------------------------------------
+
+teams = run_market()
+
+for t in teams:
+    print(t.name)
+    print("Cash:", f"{int(t.cash):,} VND")
+    print("Subscribers:", int(t.subscribers))
+    print("Fame:", round(t.fame, 3))
+    print("Trust:", round(t.trust, 3))
+    print("-" * 30)
