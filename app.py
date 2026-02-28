@@ -232,3 +232,108 @@ if st.session_state.phase == "post":
     fig.add_trace(go.Histogram(x=outcomes))
     fig.update_layout(title="Monte Carlo Risk Distribution", template="plotly_dark")
     st.plotly_chart(fig, use_container_width=True)
+# ===============================
+# PRE-PHASE ANALYTICS
+# ===============================
+
+if len(st.session_state.history_pre) > 0:
+
+    df_pre = pd.DataFrame(st.session_state.history_pre)
+
+    st.subheader("📊 Phân tích giai đoạn chuẩn bị")
+
+    # 1️⃣ Line – Cash
+    fig1 = go.Figure()
+    fig1.add_trace(go.Scatter(x=df_pre["day"], y=df_pre["cash"], mode="lines+markers"))
+    fig1.update_layout(title="Vốn theo ngày", template="plotly_dark")
+    st.plotly_chart(fig1, use_container_width=True)
+
+    # 2️⃣ Area – Fame
+    fig2 = go.Figure()
+    fig2.add_trace(go.Scatter(
+        x=df_pre["day"],
+        y=df_pre["fame"],
+        fill='tozeroy'
+    ))
+    fig2.update_layout(title="Tăng trưởng Fame", template="plotly_dark")
+    st.plotly_chart(fig2, use_container_width=True)
+
+    # 3️⃣ Bar – Trust
+    fig3 = go.Figure()
+    fig3.add_trace(go.Bar(x=df_pre["day"], y=df_pre["trust"]))
+    fig3.update_layout(title="Trust theo ngày", template="plotly_dark")
+    st.plotly_chart(fig3, use_container_width=True)
+
+    # 4️⃣ Scatter – Sentiment vs Fame
+    fig4 = go.Figure()
+    fig4.add_trace(go.Scatter(
+        x=df_pre["fame"],
+        y=df_pre["sentiment"],
+        mode="markers",
+        marker=dict(size=15)
+    ))
+    fig4.update_layout(title="Fame vs Sentiment", template="plotly_dark")
+    st.plotly_chart(fig4, use_container_width=True)
+
+    # 5️⃣ Heatmap – Fatigue
+    fig5 = go.Figure(data=go.Heatmap(
+        z=[df_pre["fatigue"]],
+        x=df_pre["day"],
+        y=["Fatigue"],
+        colorscale="Reds"
+    ))
+    fig5.update_layout(title="Heatmap Fatigue", template="plotly_dark")
+    st.plotly_chart(fig5, use_container_width=True)
+
+    # 6️⃣ Box Plot – Biến động Sentiment
+    fig6 = go.Figure()
+    fig6.add_trace(go.Box(y=df_pre["sentiment"]))
+    fig6.update_layout(title="Biến động Sentiment", template="plotly_dark")
+    st.plotly_chart(fig6, use_container_width=True)
+
+    # 7️⃣ Gauge – Trust
+    fig7 = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=st.session_state.trust,
+        gauge={'axis': {'range': [0, 1]}}
+    ))
+    fig7.update_layout(title="Mức độ tin tưởng hiện tại", template="plotly_dark")
+    st.plotly_chart(fig7, use_container_width=True)
+
+    # 8️⃣ Bubble – Fame vs Cash
+    fig8 = go.Figure()
+    fig8.add_trace(go.Scatter(
+        x=df_pre["fame"],
+        y=df_pre["cash"],
+        mode="markers",
+        marker=dict(size=df_pre["sentiment"]*40)
+    ))
+    fig8.update_layout(title="Fame vs Vốn (size = Sentiment)", template="plotly_dark")
+    st.plotly_chart(fig8, use_container_width=True)
+
+    # 9️⃣ Histogram – Fame distribution
+    fig9 = go.Figure()
+    fig9.add_trace(go.Histogram(x=df_pre["fame"]))
+    fig9.update_layout(title="Phân phối Fame", template="plotly_dark")
+    st.plotly_chart(fig9, use_container_width=True)
+
+    # 🔟 Radar – Tổng trạng thái hiện tại
+    radar_values = [
+        st.session_state.fame,
+        st.session_state.trust,
+        st.session_state.sentiment,
+        1 - st.session_state.fatigue
+    ]
+
+    fig10 = go.Figure()
+    fig10.add_trace(go.Scatterpolar(
+        r=radar_values,
+        theta=["Fame", "Trust", "Sentiment", "Energy"],
+        fill='toself'
+    ))
+    fig10.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=[0,1])),
+        title="Radar trạng thái đội",
+        template="plotly_dark"
+    )
+    st.plotly_chart(fig10, use_container_width=True)
