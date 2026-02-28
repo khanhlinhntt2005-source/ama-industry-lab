@@ -1,181 +1,166 @@
 import streamlit as st
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 import random
-import pandas as pd
+import math
 
-st.set_page_config(layout="wide", page_title="AMA Industry Simulation v2", initial_sidebar_state="expanded")
+st.set_page_config(layout="wide", page_title="AMA Market Outcome Engine")
 
-# ============================================
-# GENRE DATABASE WITH DEMOGRAPHICS
-# ============================================
+# =====================================================
+# CONFIG
+# =====================================================
+
+DAYS = 60
+INITIAL_CAPITAL = 100_000_000
 
 GENRES = {
     "Indie Chill": {
-        "description": "Aesthetic, lyric-driven, authenticity-sensitive audience.",
         "segments": {
-            "Urban Gen Z": {"size": 50000, "ctr": 0.06, "retention": 0.65, "auth_sensitivity": 0.9},
-            "Millennials": {"size": 40000, "ctr": 0.04, "retention": 0.6, "auth_sensitivity": 0.7},
-            "Art Niche": {"size": 20000, "ctr": 0.05, "retention": 0.75, "auth_sensitivity": 0.95}
-        }
+            "Gen Z": {"size": 80000, "ctr_base": 0.05, "retention_base": 0.65},
+            "Millennials": {"size": 60000, "ctr_base": 0.04, "retention_base": 0.6},
+            "Art Niche": {"size": 20000, "ctr_base": 0.06, "retention_base": 0.75}
+        },
+        "sponsor_threshold": 0.65
     },
-    "Rap Underground": {
-        "description": "Identity-driven, authenticity-critical audience.",
+    "Commercial Pop": {
         "segments": {
-            "Street Core": {"size": 45000, "ctr": 0.07, "retention": 0.7, "auth_sensitivity": 0.95},
-            "Youth Culture": {"size": 60000, "ctr": 0.05, "retention": 0.6, "auth_sensitivity": 0.8},
-            "Casual Listeners": {"size": 30000, "ctr": 0.03, "retention": 0.5, "auth_sensitivity": 0.6}
-        }
+            "Teen Market": {"size": 150000, "ctr_base": 0.06, "retention_base": 0.55},
+            "Mainstream": {"size": 200000, "ctr_base": 0.05, "retention_base": 0.5}
+        },
+        "sponsor_threshold": 0.6
     }
 }
 
-FAME_LEVELS = {"Unknown": 0.1, "Local Buzz": 0.3, "Regional": 0.6}
-TARGET_GOAL = 120_000_000
+FAME_LEVELS = {
+    "Chưa ai biết": 0.1,
+    "Có fan địa phương": 0.3,
+    "Đã có fan khu vực": 0.6
+}
 
-# ============================================
-# INIT
-# ============================================
+# =====================================================
+# INPUT PHASE (POST-JUDGE)
+# =====================================================
 
-if "initialized" not in st.session_state:
-    st.session_state.initialized = True
-    st.session_state.round = 1
-    st.session_state.cash = 100_000_000
-    
-    st.session_state.genre = random.choice(list(GENRES.keys()))
-    st.session_state.fame_label = random.choice(list(FAME_LEVELS.keys()))
-    st.session_state.fame = FAME_LEVELS[st.session_state.fame_label]
-    
-    st.session_state.trust = 0.3
-    st.session_state.history = []
-    st.session_state.feedback = []
+st.title("🎬 AMA – Mô phỏng thị trường sau khi sản phẩm hoàn thành")
 
-# ============================================
-# INTRO SCREEN
-# ============================================
+st.subheader("Nhập kết quả chấm điểm từ giám khảo")
 
-st.title("🎬 AMA Creative Industry Simulation")
+genre = st.selectbox("Thể loại", list(GENRES.keys()))
+fame_label = st.selectbox("Mức độ nổi tiếng ban đầu", list(FAME_LEVELS.keys()))
 
-st.subheader("🎲 Your Assigned Simulation Profile")
+narrative = st.slider("Điểm Câu chuyện (0-1)", 0.0, 1.0, 0.7)
+visual = st.slider("Điểm Hình ảnh (0-1)", 0.0, 1.0, 0.7)
+emotion = st.slider("Điểm Cảm xúc (0-1)", 0.0, 1.0, 0.7)
+technical = st.slider("Điểm Kỹ thuật (0-1)", 0.0, 1.0, 0.7)
+market_fit = st.slider("Điểm Phù hợp thị trường (0-1)", 0.0, 1.0, 0.7)
+originality = st.slider("Điểm Sáng tạo (0-1)", 0.0, 1.0, 0.7)
 
-st.write(f"**Genre:** {st.session_state.genre}")
-st.write(f"**Starting Fame:** {st.session_state.fame_label}")
-st.write(f"**Audience Insight:** {GENRES[st.session_state.genre]['description']}")
-st.write("🎯 Goal: Grow your capital from 100,000,000 VND to 120,000,000 VND.")
+# =====================================================
+# SIMULATION ENGINE
+# =====================================================
 
-st.divider()
+if st.button("🚀 Chạy mô phỏng 60 ngày"):
 
-colA, colB = st.columns(2)
-colA.metric("Cash", f"{int(st.session_state.cash):,} VND")
-colB.metric("Algorithm Trust", round(st.session_state.trust,2))
+    fame = FAME_LEVELS[fame_label]
+    trust = 0.3
+    capital = INITIAL_CAPITAL
 
-st.divider()
+    history = []
 
-# ============================================
-# CONSULTING OPTION
-# ============================================
+    sponsor_unlocked = False
+    sponsor_revenue = 0
 
-if st.button("📊 Consult Market Expert (3M VND)"):
-    if st.session_state.cash >= 3_000_000:
-        st.session_state.cash -= 3_000_000
-        st.success("Detailed Audience Insights Unlocked")
+    for day in range(DAYS):
 
-        for seg, data in GENRES[st.session_state.genre]["segments"].items():
-            st.write(f"{seg}: Size {data['size']}, CTR {data['ctr']}, Retention {data['retention']}")
-    else:
-        st.error("Not enough cash")
-
-st.divider()
-
-# ============================================
-# DECISION PHASE
-# ============================================
-
-st.header(f"📊 Round {st.session_state.round} – Decision")
-
-production = st.slider("Production Investment", 0, 40_000_000, 10_000_000, 5_000_000)
-auth_focus = st.slider("Authenticity Focus", 0.0, 1.0, 0.5)
-ads = st.slider("Ads Investment", 0, 30_000_000, 5_000_000, 5_000_000)
-
-total_cost = production + ads
-
-st.metric("Total Investment This Round", f"{int(total_cost):,} VND")
-
-# ============================================
-# RUN ROUND
-# ============================================
-
-if st.button("🔒 Lock & Simulate Market"):
-
-    if total_cost > st.session_state.cash:
-        st.error("Not enough capital")
-    else:
-        st.session_state.cash -= total_cost
-        
         total_views = 0
+        total_watch_time = 0
         total_revenue = 0
-        
-        feedback_report = []
 
-        for seg, data in GENRES[st.session_state.genre]["segments"].items():
-            
-            impressions = data["size"] * st.session_state.trust
-            ctr = data["ctr"] + (auth_focus * data["auth_sensitivity"] * 0.02)
-            retention = data["retention"] + (production / 40_000_000) * 0.1
-            
+        for seg_name, seg in GENRES[genre]["segments"].items():
+
+            impressions = seg["size"] * trust * (1 + fame)
+
+            ctr = seg["ctr_base"] + 0.02 * visual + 0.01 * fame
+            retention = seg["retention_base"] + 0.2 * narrative + 0.1 * emotion
+
+            ctr *= np.random.normal(1, 0.05)
+            retention *= np.random.normal(1, 0.05)
+
             views = impressions * ctr
-            revenue = views * 500
-            
+            watch_time = views * retention
+
+            streaming_revenue = views * 500
+
+            merch_conversion = 0.02 * originality
+            merch_revenue = views * merch_conversion * 100_000
+
             total_views += views
-            total_revenue += revenue
-            
-            feedback_report.append({
-                "Segment": seg,
-                "Views": int(views),
-                "Retention": round(retention,2)
-            })
+            total_watch_time += watch_time
+            total_revenue += streaming_revenue + merch_revenue
 
-        st.session_state.cash += total_revenue
-        st.session_state.trust += 0.02
-        st.session_state.round += 1
+        # Sponsor unlock logic
+        avg_retention = total_watch_time / (total_views + 1)
 
-        st.session_state.history.append({
-            "views": total_views,
-            "revenue": total_revenue,
-            "cash": st.session_state.cash
+        if (not sponsor_unlocked) and avg_retention > GENRES[genre]["sponsor_threshold"]:
+            sponsor_unlocked = True
+            sponsor_revenue = 20_000_000
+            total_revenue += sponsor_revenue
+
+        capital += total_revenue
+
+        performance_score = (avg_retention + market_fit) / 2
+        trust += 0.02 * (performance_score - 0.5)
+        trust = max(0.1, min(1.0, trust))
+
+        fame += 0.01 * performance_score
+        fame = min(1.0, fame)
+
+        history.append({
+            "Ngày": day + 1,
+            "Lượt xem": total_views,
+            "Watch Time": total_watch_time,
+            "Doanh thu": total_revenue,
+            "Vốn tích lũy": capital
         })
 
-        st.session_state.feedback = feedback_report
+    df = pd.DataFrame(history)
 
-        st.success("Round Completed!")
-
-# ============================================
-# PERFORMANCE DASHBOARD
-# ============================================
-
-if len(st.session_state.history) > 0:
-
-    df = pd.DataFrame(st.session_state.history)
-    st.subheader("📈 Financial & Growth Overview")
+    st.subheader("📊 Diễn biến 60 ngày")
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(y=df["views"], mode="lines+markers", name="Views"))
-    fig.add_trace(go.Scatter(y=df["revenue"], mode="lines+markers", name="Revenue"))
+    fig.add_trace(go.Scatter(x=df["Ngày"], y=df["Lượt xem"], name="Lượt xem"))
+    fig.add_trace(go.Scatter(x=df["Ngày"], y=df["Doanh thu"], name="Doanh thu"))
     fig.update_layout(template="plotly_dark")
     st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("📊 Segment Feedback")
+    st.metric("Vốn cuối cùng sau 60 ngày", f"{int(capital):,} VND")
 
-    for f in st.session_state.feedback:
-        st.write(f)
+    # Monte Carlo Risk Simulation
+    st.subheader("📉 Phân tích rủi ro (Monte Carlo 300 lần)")
 
-    if st.session_state.cash >= TARGET_GOAL:
-        st.success("🎉 Target Achieved! Simulation Completed.")
+    outcomes = []
 
-# ============================================
-# RESET
-# ============================================
+    for _ in range(300):
+        sim_capital = INITIAL_CAPITAL
+        trust_sim = 0.3
+        fame_sim = FAME_LEVELS[fame_label]
 
-if st.button("Reset Simulation"):
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
-    st.rerun()
+        for day in range(DAYS):
+            views_sim = 100000 * trust_sim * (1 + fame_sim)
+            revenue_sim = views_sim * (0.4 + 0.3 * narrative) * 500
+            sim_capital += revenue_sim
+            trust_sim += 0.01 * (market_fit - 0.5)
+            fame_sim += 0.01 * (narrative - 0.5)
+
+        outcomes.append(sim_capital)
+
+    risk_df = pd.DataFrame({"Vốn cuối": outcomes})
+
+    fig2 = go.Figure()
+    fig2.add_trace(go.Histogram(x=risk_df["Vốn cuối"]))
+    fig2.update_layout(template="plotly_dark")
+    st.plotly_chart(fig2, use_container_width=True)
+
+    st.metric("Xác suất đạt > 120 triệu",
+              f"{round((risk_df['Vốn cuối'] > 120_000_000).mean()*100,2)} %")
