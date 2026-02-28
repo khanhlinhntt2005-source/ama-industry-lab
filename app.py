@@ -40,7 +40,7 @@ for i, key in enumerate(BENCHMARK):
         key.capitalize(), 1, 10, 7
     )
 
-st.header("💰 Investment Strategy")
+st.header("Investment Strategy")
 
 production_cost = st.slider(
     "Production Budget", 5_000_000, 80_000_000, 30_000_000, 5_000_000
