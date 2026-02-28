@@ -4,49 +4,36 @@ import plotly.graph_objects as go
 import random
 import pandas as pd
 
-st.set_page_config(layout="wide", page_title="AMA Industry Simulation", initial_sidebar_state="expanded")
+st.set_page_config(layout="wide", page_title="AMA Industry Simulation v2", initial_sidebar_state="expanded")
 
 # ============================================
-# GENRE & AUDIENCE DATABASE
+# GENRE DATABASE WITH DEMOGRAPHICS
 # ============================================
 
 GENRES = {
     "Indie Chill": {
-        "authenticity_weight": 0.8,
-        "visual_weight": 0.5,
-        "commercial_penalty": 0.3,
-        "ticket_conversion": 0.05
+        "description": "Aesthetic, lyric-driven, authenticity-sensitive audience.",
+        "segments": {
+            "Urban Gen Z": {"size": 50000, "ctr": 0.06, "retention": 0.65, "auth_sensitivity": 0.9},
+            "Millennials": {"size": 40000, "ctr": 0.04, "retention": 0.6, "auth_sensitivity": 0.7},
+            "Art Niche": {"size": 20000, "ctr": 0.05, "retention": 0.75, "auth_sensitivity": 0.95}
+        }
     },
     "Rap Underground": {
-        "authenticity_weight": 0.9,
-        "visual_weight": 0.6,
-        "commercial_penalty": 0.2,
-        "ticket_conversion": 0.07
-    },
-    "Commercial Pop": {
-        "authenticity_weight": 0.4,
-        "visual_weight": 0.9,
-        "commercial_penalty": 0.1,
-        "ticket_conversion": 0.08
-    },
-    "Bolero Contemporary": {
-        "authenticity_weight": 0.7,
-        "visual_weight": 0.3,
-        "commercial_penalty": 0.05,
-        "ticket_conversion": 0.1
+        "description": "Identity-driven, authenticity-critical audience.",
+        "segments": {
+            "Street Core": {"size": 45000, "ctr": 0.07, "retention": 0.7, "auth_sensitivity": 0.95},
+            "Youth Culture": {"size": 60000, "ctr": 0.05, "retention": 0.6, "auth_sensitivity": 0.8},
+            "Casual Listeners": {"size": 30000, "ctr": 0.03, "retention": 0.5, "auth_sensitivity": 0.6}
+        }
     }
 }
 
-FAME_LEVELS = {
-    "Unknown": 0.1,
-    "Local Buzz": 0.3,
-    "Regional": 0.6
-}
-
+FAME_LEVELS = {"Unknown": 0.1, "Local Buzz": 0.3, "Regional": 0.6}
 TARGET_GOAL = 120_000_000
 
 # ============================================
-# INIT STATE
+# INIT
 # ============================================
 
 if "initialized" not in st.session_state:
@@ -59,20 +46,43 @@ if "initialized" not in st.session_state:
     st.session_state.fame = FAME_LEVELS[st.session_state.fame_label]
     
     st.session_state.trust = 0.3
-    st.session_state.brand = 0.2
-    
     st.session_state.history = []
+    st.session_state.feedback = []
 
 # ============================================
-# HEADER
+# INTRO SCREEN
 # ============================================
 
-st.title("🎬 AMA Creative Economy – Industry Simulation")
+st.title("🎬 AMA Creative Industry Simulation")
 
-colA, colB, colC = st.columns(3)
+st.subheader("🎲 Your Assigned Simulation Profile")
+
+st.write(f"**Genre:** {st.session_state.genre}")
+st.write(f"**Starting Fame:** {st.session_state.fame_label}")
+st.write(f"**Audience Insight:** {GENRES[st.session_state.genre]['description']}")
+st.write("🎯 Goal: Grow your capital from 100,000,000 VND to 120,000,000 VND.")
+
+st.divider()
+
+colA, colB = st.columns(2)
 colA.metric("Cash", f"{int(st.session_state.cash):,} VND")
-colB.metric("Genre", st.session_state.genre)
-colC.metric("Starting Fame", st.session_state.fame_label)
+colB.metric("Algorithm Trust", round(st.session_state.trust,2))
+
+st.divider()
+
+# ============================================
+# CONSULTING OPTION
+# ============================================
+
+if st.button("📊 Consult Market Expert (3M VND)"):
+    if st.session_state.cash >= 3_000_000:
+        st.session_state.cash -= 3_000_000
+        st.success("Detailed Audience Insights Unlocked")
+
+        for seg, data in GENRES[st.session_state.genre]["segments"].items():
+            st.write(f"{seg}: Size {data['size']}, CTR {data['ctr']}, Retention {data['retention']}")
+    else:
+        st.error("Not enough cash")
 
 st.divider()
 
@@ -80,44 +90,13 @@ st.divider()
 # DECISION PHASE
 # ============================================
 
-st.header(f"📊 Round {st.session_state.round} – Strategic Decision")
+st.header(f"📊 Round {st.session_state.round} – Decision")
 
-col1, col2, col3 = st.columns(3)
+production = st.slider("Production Investment", 0, 40_000_000, 10_000_000, 5_000_000)
+auth_focus = st.slider("Authenticity Focus", 0.0, 1.0, 0.5)
+ads = st.slider("Ads Investment", 0, 30_000_000, 5_000_000, 5_000_000)
 
-with col1:
-    st.subheader("Creative")
-    production = st.selectbox("Production", ["Low (10M)", "Medium (25M)", "High (40M)"])
-    authenticity_focus = st.slider("Authenticity Focus", 0.0, 1.0, 0.5)
-
-with col2:
-    st.subheader("Marketing")
-    ads = st.selectbox("Ads Budget", ["Low (5M)", "Medium (15M)", "High (30M)"])
-    influencer = st.checkbox("Influencer (20M)")
-
-with col3:
-    st.subheader("Live Strategy")
-    live_event = st.selectbox("Live Activity", ["None", "Free Session", "Ticket Showcase"])
-
-# ============================================
-# COST CALCULATION
-# ============================================
-
-cost_map = {
-    "Low (10M)": 10_000_000,
-    "Medium (25M)": 25_000_000,
-    "High (40M)": 40_000_000,
-    "Low (5M)": 5_000_000,
-    "Medium (15M)": 15_000_000,
-    "High (30M)": 30_000_000
-}
-
-total_cost = cost_map[production] + cost_map[ads]
-
-if influencer:
-    total_cost += 20_000_000
-
-if live_event == "Ticket Showcase":
-    total_cost += 10_000_000
+total_cost = production + ads
 
 st.metric("Total Investment This Round", f"{int(total_cost):,} VND")
 
@@ -125,76 +104,58 @@ st.metric("Total Investment This Round", f"{int(total_cost):,} VND")
 # RUN ROUND
 # ============================================
 
-if st.button("🔒 Lock & Run Market"):
+if st.button("🔒 Lock & Simulate Market"):
 
     if total_cost > st.session_state.cash:
-        st.error("Not enough capital.")
+        st.error("Not enough capital")
     else:
         st.session_state.cash -= total_cost
+        
+        total_views = 0
+        total_revenue = 0
+        
+        feedback_report = []
 
-        genre_profile = GENRES[st.session_state.genre]
+        for seg, data in GENRES[st.session_state.genre]["segments"].items():
+            
+            impressions = data["size"] * st.session_state.trust
+            ctr = data["ctr"] + (auth_focus * data["auth_sensitivity"] * 0.02)
+            retention = data["retention"] + (production / 40_000_000) * 0.1
+            
+            views = impressions * ctr
+            revenue = views * 500
+            
+            total_views += views
+            total_revenue += revenue
+            
+            feedback_report.append({
+                "Segment": seg,
+                "Views": int(views),
+                "Retention": round(retention,2)
+            })
 
-        # Creative score
-        quality = 0.5 + (cost_map[production] / 40_000_000) * 0.3
-        authenticity = authenticity_focus * genre_profile["authenticity_weight"]
-
-        # Marketing impact
-        ad_boost = np.log1p(cost_map[ads] / 10_000_000)
-
-        # Base impressions
-        attention_pool = 150_000
-        impressions = attention_pool * st.session_state.trust
-        impressions += ad_boost * 5000
-        impressions += st.session_state.fame * 5000
-
-        # CTR & retention behavior
-        ctr = 0.03 + 0.05 * genre_profile["visual_weight"] + 0.02 * st.session_state.fame
-        retention = 0.4 + 0.4 * quality
-
-        if authenticity_focus < 0.3:
-            retention -= genre_profile["commercial_penalty"]
-
-        views = impressions * ctr
-        streaming_revenue = views * 500
-
-        # Live revenue
-        live_revenue = 0
-        if live_event == "Free Session":
-            live_revenue = 5_000_000 * genre_profile["ticket_conversion"]
-        elif live_event == "Ticket Showcase":
-            live_revenue = 20_000_000 * genre_profile["ticket_conversion"]
-
-        total_revenue = streaming_revenue + live_revenue
         st.session_state.cash += total_revenue
+        st.session_state.trust += 0.02
+        st.session_state.round += 1
 
-        # Update fame & trust
-        performance = ctr * retention
-        st.session_state.trust += 0.05 * (performance - 0.05)
-        st.session_state.trust = max(0.1, min(1.0, st.session_state.trust))
-
-        if performance > 0.06:
-            st.session_state.fame += 0.05
-
-        # Save history
         st.session_state.history.append({
-            "views": views,
+            "views": total_views,
             "revenue": total_revenue,
             "cash": st.session_state.cash
         })
 
-        st.session_state.round += 1
+        st.session_state.feedback = feedback_report
 
         st.success("Round Completed!")
 
 # ============================================
-# DASHBOARD
+# PERFORMANCE DASHBOARD
 # ============================================
 
 if len(st.session_state.history) > 0:
 
     df = pd.DataFrame(st.session_state.history)
-
-    st.subheader("📈 Performance Dashboard")
+    st.subheader("📈 Financial & Growth Overview")
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(y=df["views"], mode="lines+markers", name="Views"))
@@ -202,8 +163,13 @@ if len(st.session_state.history) > 0:
     fig.update_layout(template="plotly_dark")
     st.plotly_chart(fig, use_container_width=True)
 
+    st.subheader("📊 Segment Feedback")
+
+    for f in st.session_state.feedback:
+        st.write(f)
+
     if st.session_state.cash >= TARGET_GOAL:
-        st.success("🎉 Target Achieved! You reached 120,000,000 VND.")
+        st.success("🎉 Target Achieved! Simulation Completed.")
 
 # ============================================
 # RESET
