@@ -4,192 +4,162 @@ import pandas as pd
 import plotly.graph_objects as go
 import random
 
-st.set_page_config(layout="wide", page_title="AMA Industry Simulation Advanced")
+st.set_page_config(layout="wide")
 
 # ============================================
-# CẤU HÌNH HỆ THỐNG
+# INITIAL STATE
 # ============================================
 
-DAYS = 60
-INITIAL_CAPITAL = 100_000_000
+if "initialized" not in st.session_state:
+    st.session_state.initialized = True
+    st.session_state.cash = 100_000_000
+    st.session_state.fame = 0.2
+    st.session_state.trust = 0.3
+    st.session_state.fatigue = 0.0
+    st.session_state.sentiment = 0.5
+    st.session_state.day = 0
 
-GENRES = {
-    "Indie Chill": {
-        "segments": {
-            "Gen Z": {"size": 80000, "ctr_base": 0.05, "retention_base": 0.65},
-            "Millennials": {"size": 60000, "ctr_base": 0.04, "retention_base": 0.6}
-        },
-        "sponsor_threshold": 0.65
-    },
-    "Commercial Pop": {
-        "segments": {
-            "Teen Market": {"size": 150000, "ctr_base": 0.06, "retention_base": 0.55},
-            "Mainstream": {"size": 200000, "ctr_base": 0.05, "retention_base": 0.5}
-        },
-        "sponsor_threshold": 0.6
+    st.session_state.history = {
+        "cash": [],
+        "fame": [],
+        "trust": [],
+        "views": [],
+        "retention": [],
+        "sentiment": [],
+        "fatigue": [],
+        "merch": [],
+        "sponsor": [],
+        "engagement": []
     }
-}
-
-FAME_LEVELS = {
-    "Chưa ai biết": 0.1,
-    "Có fan địa phương": 0.3,
-    "Có fan khu vực": 0.6
-}
 
 # ============================================
-# INPUT PHASE
+# CORE ENGINE
 # ============================================
 
-st.title("🎬 AMA – Post Judge Market Engine (Advanced)")
+def simulate_day(activity_effect):
 
-genre = st.selectbox("Thể loại", list(GENRES.keys()))
-fame_label = st.selectbox("Mức độ nổi tiếng ban đầu", list(FAME_LEVELS.keys()))
+    base_market = 200_000
+    
+    fluctuation = np.random.normal(1, 0.1)
+    fatigue_penalty = 1 - st.session_state.fatigue
 
-st.subheader("Điểm từ giám khảo")
+    impressions = base_market * st.session_state.trust * fluctuation
+    ctr = 0.04 + 0.02 * st.session_state.fame
+    views = impressions * ctr
 
-narrative = st.slider("Câu chuyện", 0.0, 1.0, 0.7)
-visual = st.slider("Hình ảnh", 0.0, 1.0, 0.7)
-emotion = st.slider("Cảm xúc", 0.0, 1.0, 0.7)
-technical = st.slider("Kỹ thuật", 0.0, 1.0, 0.7)
-market_fit = st.slider("Phù hợp thị trường", 0.0, 1.0, 0.7)
-originality = st.slider("Sáng tạo", 0.0, 1.0, 0.7)
+    retention = 0.5 + 0.2 * st.session_state.sentiment
+    retention *= fatigue_penalty
+
+    engagement = views * retention
+
+    merch = engagement * 0.02 * 100_000
+    sponsor = 0
+
+    if engagement > 50000 and st.session_state.sentiment > 0.6:
+        sponsor = 10_000_000
+
+    revenue = views * 500 + merch + sponsor
+
+    # Apply activity effect
+    st.session_state.fame += activity_effect["fame"]
+    st.session_state.trust += activity_effect["trust"]
+    st.session_state.sentiment += activity_effect["sentiment"]
+    st.session_state.fatigue += activity_effect["fatigue"]
+
+    st.session_state.fatigue = min(0.5, max(0, st.session_state.fatigue))
+    st.session_state.sentiment = min(1, max(0, st.session_state.sentiment))
+    st.session_state.trust = min(1.5, max(0.1, st.session_state.trust))
+    st.session_state.fame = min(2, max(0, st.session_state.fame))
+
+    st.session_state.cash += revenue
+
+    st.session_state.day += 1
+
+    # Save history
+    st.session_state.history["cash"].append(st.session_state.cash)
+    st.session_state.history["fame"].append(st.session_state.fame)
+    st.session_state.history["trust"].append(st.session_state.trust)
+    st.session_state.history["views"].append(views)
+    st.session_state.history["retention"].append(retention)
+    st.session_state.history["sentiment"].append(st.session_state.sentiment)
+    st.session_state.history["fatigue"].append(st.session_state.fatigue)
+    st.session_state.history["merch"].append(merch)
+    st.session_state.history["sponsor"].append(sponsor)
+    st.session_state.history["engagement"].append(engagement)
+
 
 # ============================================
-# CHI PHÍ BỔ SUNG
+# DASHBOARD
 # ============================================
 
-st.subheader("Chiến lược bổ sung")
+st.title("🎬 AMA Industry Simulation – Loop Model")
 
-minishow = st.checkbox("Tổ chức Minishow (chi phí 15 triệu)")
-collab = st.checkbox("Collab với đội khác (chia fan base, tăng reach)")
-extra_mentor = st.checkbox("Thuê thêm mentor ngoài 30h (500k/giờ, giả định 10 giờ = 5 triệu)")
+col1, col2, col3 = st.columns(3)
+col1.metric("Tiền", f"{int(st.session_state.cash):,} VND")
+col2.metric("Fame", round(st.session_state.fame,2))
+col3.metric("Trust", round(st.session_state.trust,2))
 
-# ============================================
-# ADMIN CONTROL – CORY CAN THIỆP
-# ============================================
+st.write("Ngày:", st.session_state.day)
 
-st.subheader("Admin Control – Cory")
-
-cory_boost = st.slider("Tăng nhận diện (Admin Boost)", 0.0, 0.5, 0.0)
-cory_trust_boost = st.slider("Tăng độ tin tưởng thuật toán", 0.0, 0.3, 0.0)
+st.divider()
 
 # ============================================
-# SIMULATION
+# ACTIVITY PAGES
 # ============================================
 
-if st.button("🚀 Chạy mô phỏng 60 ngày"):
+activity = st.selectbox("Chọn hoạt động", [
+    "Minishow (15M)",
+    "Chạy Ads (10M)",
+    "Collab (miễn phí)",
+    "Thuê Mentor (5M)",
+    "Nghỉ ngơi (giảm fatigue)"
+])
 
-    fame = FAME_LEVELS[fame_label]
-    trust = 0.3 + cory_trust_boost
-    capital = INITIAL_CAPITAL
+if st.button("Thực hiện hoạt động"):
 
-    # Chi phí bổ sung
-    if minishow:
-        capital -= 15_000_000
-        fame += 0.1
-        trust += 0.05
+    if activity == "Minishow (15M)":
+        st.session_state.cash -= 15_000_000
+        effect = {"fame":0.1, "trust":0.05, "sentiment":0.1, "fatigue":0.1}
 
-    if extra_mentor:
-        capital -= 5_000_000
-        narrative += 0.05
-        technical += 0.05
+    elif activity == "Chạy Ads (10M)":
+        st.session_state.cash -= 10_000_000
+        effect = {"fame":0.05, "trust":0.1, "sentiment":0.02, "fatigue":0.05}
 
-    if collab:
-        fame += 0.15
-        trust += 0.05
+    elif activity == "Collab (miễn phí)":
+        effect = {"fame":0.15, "trust":0.08, "sentiment":0.05, "fatigue":0.1}
 
-    fame += cory_boost
+    elif activity == "Thuê Mentor (5M)":
+        st.session_state.cash -= 5_000_000
+        effect = {"fame":0.02, "trust":0.03, "sentiment":0.1, "fatigue":0.02}
 
-    history = []
-    sponsor_unlocked = False
+    else:
+        effect = {"fame":0, "trust":0, "sentiment":0.05, "fatigue":-0.1}
 
-    for day in range(DAYS):
+    simulate_day(effect)
 
-        total_views = 0
-        total_watch_time = 0
-        total_revenue = 0
+# ============================================
+# 10 GRAPHS
+# ============================================
 
-        for seg_name, seg in GENRES[genre]["segments"].items():
+if st.session_state.day > 0:
 
-            impressions = seg["size"] * trust * (1 + fame)
+    df = pd.DataFrame(st.session_state.history)
 
-            ctr = seg["ctr_base"] + 0.02 * visual + 0.01 * fame
-            retention = seg["retention_base"] + 0.2 * narrative + 0.1 * emotion
+    graphs = [
+        ("Tiền", df["cash"]),
+        ("Fame", df["fame"]),
+        ("Trust", df["trust"]),
+        ("Views", df["views"]),
+        ("Retention", df["retention"]),
+        ("Sentiment", df["sentiment"]),
+        ("Fatigue", df["fatigue"]),
+        ("Merch Revenue", df["merch"]),
+        ("Sponsor Revenue", df["sponsor"]),
+        ("Engagement", df["engagement"]),
+    ]
 
-            ctr *= np.random.normal(1, 0.03)
-            retention *= np.random.normal(1, 0.03)
-
-            views = impressions * ctr
-            watch_time = views * retention
-
-            streaming_revenue = views * 500
-
-            merch_revenue = views * (0.02 * originality) * 100_000
-
-            total_views += views
-            total_watch_time += watch_time
-            total_revenue += streaming_revenue + merch_revenue
-
-        avg_retention = total_watch_time / (total_views + 1)
-
-        if not sponsor_unlocked and avg_retention > GENRES[genre]["sponsor_threshold"]:
-            sponsor_unlocked = True
-            sponsor_money = 20_000_000
-            total_revenue += sponsor_money
-
-        capital += total_revenue
-
-        performance_score = (avg_retention + market_fit) / 2
-        trust += 0.015 * (performance_score - 0.5)
-        trust = max(0.1, min(1.2, trust))
-
-        fame += 0.01 * performance_score
-        fame = min(1.5, fame)
-
-        history.append({
-            "Ngày": day + 1,
-            "Lượt xem": total_views,
-            "Doanh thu": total_revenue,
-            "Vốn tích lũy": capital
-        })
-
-    df = pd.DataFrame(history)
-
-    st.subheader("📈 Diễn biến 60 ngày")
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df["Ngày"], y=df["Lượt xem"], name="Lượt xem"))
-    fig.add_trace(go.Scatter(x=df["Ngày"], y=df["Doanh thu"], name="Doanh thu"))
-    fig.add_trace(go.Scatter(x=df["Ngày"], y=df["Vốn tích lũy"], name="Vốn tích lũy"))
-    fig.update_layout(template="plotly_dark")
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.metric("Vốn cuối cùng", f"{int(capital):,} VND")
-
-    # Monte Carlo Risk
-    st.subheader("📉 Phân tích rủi ro (Monte Carlo 500 lần)")
-
-    outcomes = []
-
-    for _ in range(500):
-        sim_cap = INITIAL_CAPITAL
-        sim_trust = 0.3
-        sim_fame = FAME_LEVELS[fame_label]
-
-        for day in range(DAYS):
-            sim_views = 100000 * sim_trust * (1 + sim_fame)
-            sim_revenue = sim_views * (0.4 + 0.3 * narrative) * 500
-            sim_cap += sim_revenue
-            sim_trust += 0.01 * (market_fit - 0.5)
-            sim_fame += 0.01 * (narrative - 0.5)
-
-        outcomes.append(sim_cap)
-
-    prob_success = np.mean(np.array(outcomes) > 120_000_000)
-
-    fig2 = go.Figure()
-    fig2.add_trace(go.Histogram(x=outcomes))
-    fig2.update_layout(template="plotly_dark")
-    st.plotly_chart(fig2, use_container_width=True)
-
-    st.metric("Xác suất đạt >120 triệu", f"{round(prob_success*100,2)} %")
+    for title, data in graphs:
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(y=data, mode="lines+markers"))
+        fig.update_layout(title=title, template="plotly_dark")
+        st.plotly_chart(fig, use_container_width=True)
