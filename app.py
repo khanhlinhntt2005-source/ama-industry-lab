@@ -1,151 +1,196 @@
+import streamlit as st
 import numpy as np
-import random
 import math
+import random
+import matplotlib.pyplot as plt
 
-class Team:
+st.set_page_config(layout="wide", page_title="AMA Creative Economy Lab")
 
-    def __init__(self, name):
-        self.name = name
+# =========================
+# FORMAT
+# =========================
 
-        # Capital
-        self.cash = 100_000_000
+def format_vnd(x):
+    return f"{int(x):,} VND"
 
-        # Creative baseline
-        self.quality = 0.7
-        self.originality = 0.7
-        self.audience_fit = 0.6
-        self.technical = 0.75
+# =========================
+# INIT STATE
+# =========================
 
-        # Fame & algorithm state
-        self.fame = 0.0
-        self.trust = 0.2
-        self.sentiment = 0.5
+if "initialized" not in st.session_state:
 
-        self.subscribers = 0
-        self.brand_equity = 0.0
+    st.session_state.initialized = True
+    st.session_state.day = 0
 
-        # Investment buckets
-        self.production = 0
-        self.marketing = 0
-        self.mentor = False
+    # Capital
+    st.session_state.cash = 100_000_000
+    st.session_state.initial_budget = 100_000_000
 
-    # ----------------------------------------
-    # Capital allocation
-    # ----------------------------------------
+    # Competence
+    st.session_state.narrative = 0.5
+    st.session_state.visual = 0.5
+    st.session_state.emotion = 0.5
+    st.session_state.technical = 0.5
+    st.session_state.strategy = 0.5
 
-    def allocate(self, production, marketing, mentor=False):
+    # Market state
+    st.session_state.fame = 0.0
+    st.session_state.trust = 0.2
+    st.session_state.sentiment = 0.5
+    st.session_state.subs = 0
+    st.session_state.total_views = 0
+    st.session_state.total_revenue = 0
 
-        total = production + marketing
-        if total > self.cash:
-            raise ValueError("Not enough capital")
+    st.session_state.history_views = []
+    st.session_state.history_competence = []
 
-        self.cash -= total
+# =========================
+# HEADER
+# =========================
 
-        self.production = production
-        self.marketing = marketing
-        self.mentor = mentor
+st.title("🎬 AMA Creative Economy Simulation")
 
-        # Effects
-        self.technical += 0.05 * math.sqrt(production / 10_000_000)
-        self.quality += 0.05 * math.sqrt(production / 10_000_000)
+st.subheader("💰 Capital")
+
+col1, col2 = st.columns(2)
+
+col1.metric("Remaining Cash", format_vnd(st.session_state.cash))
+col2.metric("Total Revenue", format_vnd(st.session_state.total_revenue))
+
+st.divider()
+
+# =========================
+# CAPITAL ALLOCATION
+# =========================
+
+st.subheader("📊 Investment Decisions")
+
+production = st.slider("Production Investment", 0, 50_000_000, 10_000_000, 5_000_000)
+marketing = st.slider("Marketing Investment", 0, 50_000_000, 5_000_000, 5_000_000)
+mentor = st.checkbox("Hire Mentor (15,000,000 VND)")
+
+total_spent = production + marketing + (15_000_000 if mentor else 0)
+
+if total_spent > st.session_state.cash:
+    st.error("Not enough cash.")
+else:
+    if st.button("Invest & Launch"):
+
+        st.session_state.cash -= total_spent
+
+        # Competence Growth
+        prod_factor = math.sqrt(production / 10_000_000) if production > 0 else 0
+
+        st.session_state.technical += 0.05 * prod_factor
+        st.session_state.visual += 0.04 * prod_factor
+        st.session_state.narrative += 0.03 * prod_factor
 
         if mentor:
-            self.quality += 0.05
-            self.originality -= 0.05
+            st.session_state.narrative += 0.07
+            st.session_state.strategy += 0.05
+            st.session_state.emotion += 0.03
+            st.session_state.visual -= 0.02  # originality pressure
 
-    # ----------------------------------------
-    # Expected metrics
-    # ----------------------------------------
+        # Marketing diminishing return
+        marketing_boost = math.log1p(marketing / 10_000_000)
 
-    def expected_ctr(self):
-        return 0.03 + 0.04 * self.originality + 0.02 * self.fame
+        # --------------------------
+        # MARKET SIMULATION
+        # --------------------------
 
-    def expected_watch(self):
-        return 0.3 + 0.5 * self.quality
+        base_impressions = 2000 + 8000 * st.session_state.trust
+        impressions = base_impressions + 3000 * marketing_boost
 
-    def expected_impressions(self):
-        base = 2000 + 8000 * self.trust
-        marketing_boost = 2000 * math.log1p(self.marketing / 10_000_000)
-        return base + marketing_boost
-
-    # ----------------------------------------
-    # Daily simulation
-    # ----------------------------------------
-
-    def simulate_day(self, market_attention):
-
-        exp_impr = min(self.expected_impressions(), market_attention)
-
-        exp_ctr = self.expected_ctr()
-        exp_watch = self.expected_watch()
-
-        impressions = np.random.normal(exp_impr, exp_impr * 0.1)
-        ctr = np.random.normal(exp_ctr, 0.005)
-        watch = np.random.normal(exp_watch, 0.05)
-
-        impressions = max(500, impressions)
-        ctr = max(0.01, min(0.15, ctr))
-        watch = max(0.1, min(0.9, watch))
+        ctr = 0.03 + 0.04 * st.session_state.visual + 0.02 * st.session_state.fame
+        watch = 0.3 + 0.5 * st.session_state.narrative
 
         views = impressions * ctr
 
-        performance = (ctr * watch) / (exp_ctr * exp_watch)
+        performance_ratio = (ctr * watch) / (0.03 * 0.5)
 
-        self.trust += 0.05 * (performance - 1)
-        self.trust = max(0.05, min(1.0, self.trust))
+        st.session_state.trust += 0.05 * (performance_ratio - 1)
+        st.session_state.trust = max(0.05, min(1, st.session_state.trust))
 
-        if performance > 1.1:
-            self.fame += 0.01 * performance
+        if performance_ratio > 1.1:
+            st.session_state.fame += 0.01
 
         revenue = views * 500
-        self.cash += revenue
+        st.session_state.cash += revenue
+        st.session_state.total_revenue += revenue
+        st.session_state.total_views += views
 
-        new_subs = views * 0.01 * self.sentiment
-        self.subscribers += new_subs
+        new_subs = views * 0.01 * st.session_state.sentiment
+        st.session_state.subs += new_subs
 
-        self.brand_equity += 0.01 * (self.fame + self.sentiment)
+        # Competence history
+        avg_comp = (
+            st.session_state.narrative +
+            st.session_state.visual +
+            st.session_state.emotion +
+            st.session_state.technical +
+            st.session_state.strategy
+        ) / 5
 
-        return views, revenue
+        st.session_state.history_views.append(views)
+        st.session_state.history_competence.append(avg_comp)
 
+        st.session_state.day += 1
 
-# ----------------------------------------
-# MARKET SIMULATION
-# ----------------------------------------
+# =========================
+# METRICS
+# =========================
 
-def run_market(days=60):
+st.subheader("📈 Current Performance")
 
-    teams = [
-        Team("Team A"),
-        Team("Team B")
-    ]
+col3, col4, col5 = st.columns(3)
 
-    # Allocate differently
-    teams[0].allocate(40_000_000, 30_000_000, mentor=True)
-    teams[1].allocate(20_000_000, 50_000_000, mentor=False)
+col3.metric("Total Views", f"{int(st.session_state.total_views):,}")
+col4.metric("Subscribers", f"{int(st.session_state.subs):,}")
+col5.metric("Algorithm Trust", round(st.session_state.trust,2))
 
-    market_attention = 50_000
+st.divider()
 
-    for day in range(days):
+# =========================
+# COMPETENCE PANEL
+# =========================
 
-        for team in teams:
-            views, revenue = team.simulate_day(market_attention)
+st.subheader("🎓 Competence Growth")
 
-        # attention limited pool
-        market_attention = 50_000 + random.randint(-5000, 5000)
+competence_dict = {
+    "Narrative": st.session_state.narrative,
+    "Visual": st.session_state.visual,
+    "Emotion": st.session_state.emotion,
+    "Technical": st.session_state.technical,
+    "Strategy": st.session_state.strategy
+}
 
-    return teams
+fig1, ax1 = plt.subplots()
+ax1.bar(competence_dict.keys(), competence_dict.values())
+ax1.set_ylim(0,1)
+ax1.set_title("Competence Profile")
+st.pyplot(fig1)
 
+# =========================
+# HISTORY
+# =========================
 
-# ----------------------------------------
-# RUN
-# ----------------------------------------
+if len(st.session_state.history_views) > 0:
 
-teams = run_market()
+    st.subheader("📊 Evolution")
 
-for t in teams:
-    print(t.name)
-    print("Cash:", f"{int(t.cash):,} VND")
-    print("Subscribers:", int(t.subscribers))
-    print("Fame:", round(t.fame, 3))
-    print("Trust:", round(t.trust, 3))
-    print("-" * 30)
+    fig2, ax2 = plt.subplots(1,2, figsize=(12,4))
+
+    ax2[0].plot(st.session_state.history_views)
+    ax2[0].set_title("Views Over Time")
+
+    ax2[1].plot(st.session_state.history_competence)
+    ax2[1].set_title("Competence Growth")
+
+    st.pyplot(fig2)
+
+st.divider()
+
+if st.button("Reset Simulation"):
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+    st.rerun()
