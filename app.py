@@ -207,9 +207,9 @@ if st.session_state.phase == "rating":
 
     st.subheader("🏁 Nhập điểm giám khảo")
 
-    narrative = st.slider("Narrative",0.0,1.0,0.7)
-    visual = st.slider("Visual",0.0,1.0,0.7)
-    emotion = st.slider("Emotion",0.0,1.0,0.7)
+    narrative = st.slider("Câu chuyện mang bản sắc cá nhân",0.0,1.0,0.7)
+    visual = st.slider("Hình ảnh",0.0,1.0,0.7)
+    emotion = st.slider("Cảm xúc",0.0,1.0,0.7)
 
     if st.button("🚀 Ra mắt sản phẩm"):
 
