@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import random
 
-st.set_page_config(layout="wide", page_title="AMA Industry Simulation Full")
+st.set_page_config(layout="wide", page_title="Hệ thống Nghệ thuật Mô phỏng AMA")
 
 # ============================================
 # INITIALIZATION
@@ -26,13 +26,13 @@ if "phase" not in st.session_state:
 # HEADER
 # ============================================
 
-st.title("🎬 AMA Industry Simulation – Full System")
+st.title("Hệ thống Nghệ thuật Mô phỏng AMA - Block sản xuất MV")
 
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Tiền", f"{int(st.session_state.cash):,} VND")
-col2.metric("Fame", round(st.session_state.fame,2))
-col3.metric("Trust", round(st.session_state.trust,2))
-col4.metric("Sentiment", round(st.session_state.sentiment,2))
+col2.metric("Danh Tiếng", round(st.session_state.fame,2))
+col3.metric("Mức độ đáng tin cậy", round(st.session_state.trust,2))
+col4.metric("Đánh giá của khán giả", round(st.session_state.sentiment,2))
 
 st.write("Phase:", st.session_state.phase.upper())
 
@@ -49,11 +49,11 @@ if st.session_state.phase == "pre":
     activity = st.selectbox("Chọn hoạt động", [
         "Minishow (15M)",
         "Chạy Ads (10M)",
-        "Spam Ads (20M)",
+        "Chạy Ads Số lượng lớn (20M)",
         "Collab",
         "Thuê Mentor (5M)",
         "Luyện Tập",
-        "Scandal PR"
+        "Scandal PR - Bốc Thăm Ngẫu Nhiên ngày sẽ bắt buộc phải nhận scandal"
     ])
 
     if st.button("Thực hiện"):
@@ -61,14 +61,32 @@ if st.session_state.phase == "pre":
         effect = {"fame":0,"trust":0,"sentiment":0,"fatigue":0}
 
         if activity == "Minishow (15M)":
-            st.session_state.cash -= 15_000_000
-            ticket_success = random.random() < st.session_state.fame
+        st.session_state.cash -= 15_000_000
+
+        ticket_success = random.random() < st.session_state.fame
+
             if ticket_success:
-                effect = {"fame":0.1,"trust":0.05,"sentiment":0.1,"fatigue":0.1}
-                st.success("Minishow thành công!")
+            # Doanh thu vé
+                st.session_state.cash += 17_500_000
+        
+                effect = {
+                    "fame": 0.1,
+                    "trust": 0.05,
+                    "sentiment": 0.1,
+                    "fatigue": 0.1
+                }
+    
+                st.success("Minishow thành công! Thu về 17.500.000 VND")
+
             else:
-                effect = {"fame":0.05,"trust":-0.05,"sentiment":-0.1,"fatigue":0.1}
-                st.warning("Minishow bán vé kém!")
+                effect = {
+                    "fame": 0.05,
+                    "trust": -0.05,
+                    "sentiment": -0.1,
+                    "fatigue": 0.1
+                }
+    
+                st.warning("Minishow bán vé kém! Đây chưa phải là thời điểm phù hợp để làm minishow")
 
         elif activity == "Chạy Ads (10M)":
             st.session_state.cash -= 10_000_000
