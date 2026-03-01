@@ -52,7 +52,7 @@ if st.session_state.phase == "pre":
         "Spam Ads (20M)",
         "Collab",
         "Thuê Mentor (5M)",
-        "Nghỉ ngơi",
+        "Luyện Tập",
         "Scandal PR"
     ])
 
