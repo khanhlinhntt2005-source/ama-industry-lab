@@ -61,9 +61,9 @@ if st.session_state.phase == "pre":
         effect = {"fame":0,"trust":0,"sentiment":0,"fatigue":0}
 
         if activity == "Minishow (15M)":
-        st.session_state.cash -= 15_000_000
+            st.session_state.cash -= 15_000_000
 
-        ticket_success = random.random() < st.session_state.fame
+            ticket_success = random.random() < st.session_state.fame
 
             if ticket_success:
             # Doanh thu vé
