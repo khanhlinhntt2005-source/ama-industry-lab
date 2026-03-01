@@ -276,7 +276,7 @@ if st.session_state.phase == "post":
 
     is_failure = random.random() < failure_probability
 
-    st.metric("🔥 Market Success Score", round(success_score,2))
+    st.metric("🔥 Xác xuất thành công", round(success_score,2))
     st.metric("💣 Xác suất thất bại", round(failure_probability,2))
 
     results = []
