@@ -7,7 +7,7 @@ import random
 st.set_page_config(layout="wide")
 
 # ==================================================
-# INITIALIZATION (SAFE & CLEAN)
+# INITIALIZATION (SAFE)
 # ==================================================
 
 def init_state():
@@ -45,13 +45,13 @@ st.progress(st.session_state.day / 14)
 st.divider()
 
 # ==================================================
-# PHASE 1 – 14 DAYS (MULTI ACTION)
+# PHASE 1 – 14 DAYS
 # ==================================================
 
 if st.session_state.phase == "pre":
 
     st.subheader(f"📆 Ngày {st.session_state.day} / 14")
-    st.write(f"🎯 Action còn lại: {st.session_state.action_points}")
+    st.write(f"🎯 Action còn lại hôm nay: {st.session_state.action_points}")
 
     activity = st.selectbox("Chọn hoạt động", [
         "Minishow (15M)",
@@ -66,82 +66,103 @@ if st.session_state.phase == "pre":
     if activity == "Thuê Mentor (500k/giờ)":
         mentor_hours = st.slider("Số giờ mentor",1,5,1)
 
-    if st.button("🎯 Thực hiện"):
+    colA, colB = st.columns(2)
+
+    # ================= THỰC HIỆN =================
+
+    if colA.button("🎯 Thực hiện"):
 
         if st.session_state.action_points <= 0:
             st.warning("Hết lượt hành động hôm nay.")
-        else:
+            st.stop()
 
-            effect = {"fame":0,"trust":0,"sentiment":0,"fatigue":0}
+        effect = {"fame":0,"trust":0,"sentiment":0,"fatigue":0}
 
-            # ================= MINISHOW =================
-            if activity == "Minishow (15M)":
-                st.session_state.cash -= 15_000_000
-                success = random.random() < st.session_state.fame
+        # -------- MINISHOW --------
+        if activity == "Minishow (15M)":
+            if st.session_state.cash < 15_000_000:
+                st.error("Không đủ tiền.")
+                st.stop()
 
-                if success:
-                    revenue = 20_000_000
-                    st.session_state.cash += revenue
-                    st.session_state.total_revenue_pre += revenue
-                    effect = {"fame":0.1,"trust":0.05,"sentiment":0.1,"fatigue":0.1}
-                    st.session_state.chat_log.append("🎉 Minishow thành công!")
-                else:
-                    effect = {"trust":-0.1,"sentiment":-0.15,"fatigue":0.1}
-                    st.session_state.chat_log.append("⚠️ Minishow thất bại.")
+            st.session_state.cash -= 15_000_000
+            success = random.random() < st.session_state.fame
 
-            # ================= ADS NHẸ =================
-            elif activity == "Chạy Ads (10M)":
-                st.session_state.cash -= 10_000_000
-                effect = {"fame":0.05,"sentiment":0.03,"fatigue":0.05}
-                st.session_state.chat_log.append("📢 Ads giúp tăng nhận diện.")
+            if success:
+                revenue = 20_000_000
+                st.session_state.cash += revenue
+                st.session_state.total_revenue_pre += revenue
+                effect = {"fame":0.1,"trust":0.05,"sentiment":0.1,"fatigue":0.1}
+                st.session_state.chat_log.append("🎉 Minishow thành công.")
+            else:
+                effect = {"trust":-0.1,"sentiment":-0.15,"fatigue":0.1}
+                st.session_state.chat_log.append("⚠️ Minishow thất bại.")
 
-            # ================= ADS LỚN =================
-            elif activity == "Chạy Ads lớn (20M)":
-                st.session_state.cash -= 20_000_000
-                effect = {"fame":0.15,"trust":-0.1,"sentiment":-0.1,"fatigue":0.2}
-                st.session_state.chat_log.append("⚠️ Ads quá đà gây phản tác dụng.")
+        # -------- ADS --------
+        elif activity == "Chạy Ads (10M)":
+            st.session_state.cash -= 10_000_000
+            effect = {"fame":0.05,"sentiment":0.03,"fatigue":0.05}
+            st.session_state.chat_log.append("📢 Ads tăng nhận diện.")
 
-            # ================= MENTOR =================
-            elif activity == "Thuê Mentor (500k/giờ)":
-                cost = mentor_hours * 500_000
-                st.session_state.cash -= cost
-                st.session_state.mentor_hours_used += mentor_hours
+        elif activity == "Chạy Ads lớn (20M)":
+            st.session_state.cash -= 20_000_000
+            effect = {"fame":0.15,"trust":-0.1,"sentiment":-0.1,"fatigue":0.2}
+            st.session_state.chat_log.append("⚠️ Ads quá đà.")
 
-                effect = {
-                    "trust":0.03*mentor_hours,
-                    "sentiment":0.05*mentor_hours,
-                    "fatigue":0.01*mentor_hours
-                }
+        # -------- MENTOR --------
+        elif activity == "Thuê Mentor (500k/giờ)":
+            cost = mentor_hours * 500_000
+            st.session_state.cash -= cost
+            st.session_state.mentor_hours_used += mentor_hours
 
-                st.session_state.chat_log.append(
-                    f"👨‍🏫 Mentor hỗ trợ {mentor_hours} giờ."
-                )
+            effect = {
+                "trust":0.03*mentor_hours,
+                "sentiment":0.05*mentor_hours,
+                "fatigue":0.01*mentor_hours
+            }
 
-            # ================= CONSULT =================
-            elif activity == "Tham khảo chuyên gia thị trường (1M)":
-                st.session_state.cash -= 1_000_000
-                insight = random.random()
+            st.session_state.chat_log.append(
+                f"👨‍🏫 Mentor hỗ trợ {mentor_hours} giờ."
+            )
 
-                if insight > 0.5:
-                    effect = {"fame":0.05,"trust":0.05}
-                    st.session_state.chat_log.append("📊 Insight hữu ích.")
-                else:
-                    effect = {"trust":-0.02}
-                    st.session_state.chat_log.append("🤔 Insight chưa rõ.")
+        # -------- CONSULT --------
+        elif activity == "Tham khảo chuyên gia thị trường (1M)":
+            st.session_state.cash -= 1_000_000
+            insight = random.random()
 
-            # ================= PRACTICE =================
-            elif activity == "Luyện tập":
-                effect = {"trust":0.02,"sentiment":0.04,"fatigue":-0.05}
-                st.session_state.chat_log.append("🎵 Luyện tập hiệu quả.")
+            if insight > 0.5:
+                effect = {"fame":0.05,"trust":0.05}
+                st.session_state.chat_log.append("📊 Insight hữu ích.")
+            else:
+                effect = {"trust":-0.02}
+                st.session_state.chat_log.append("🤔 Insight chưa rõ.")
 
-            # UPDATE STATE
-            for key in effect:
-                st.session_state[key] = max(
-                    0,
-                    min(1, st.session_state[key] + effect[key])
-                )
+        # -------- PRACTICE --------
+        elif activity == "Luyện tập":
+            effect = {"trust":0.02,"sentiment":0.04,"fatigue":-0.05}
+            st.session_state.chat_log.append("🎵 Luyện tập tốt.")
 
-            st.session_state.action_points -= 1
+        # UPDATE STATE
+        for key in effect:
+            st.session_state[key] = max(
+                0,
+                min(1, st.session_state[key] + effect[key])
+            )
+
+        st.session_state.action_points -= 1
+        st.rerun()
+
+    # ================= KẾT THÚC NGÀY =================
+
+    if colB.button("🌙 Kết thúc ngày"):
+
+        st.session_state.day += 1
+        st.session_state.action_points = 3
+        st.session_state.fatigue = max(0, st.session_state.fatigue - 0.05)
+
+        if st.session_state.day > 14:
+            st.session_state.phase = "release"
+
+        st.rerun()
 
     # ================= CHAT LOG =================
 
@@ -151,44 +172,25 @@ if st.session_state.phase == "pre":
     for msg in reversed(st.session_state.chat_log[-8:]):
         st.write(msg)
 
-    # ================= END DAY =================
-
-    if st.session_state.action_points == 0:
-        if st.button("🌙 Kết thúc ngày"):
-
-            st.session_state.day += 1
-            st.session_state.action_points = 3
-
-            st.session_state.fatigue = max(
-                0,
-                st.session_state.fatigue - 0.05
-            )
-
-            if st.session_state.day > 14:
-                st.session_state.phase = "release"
-
-            st.rerun()
-
 # ==================================================
-# PHASE 2 – RELEASE & JUDGE
+# PHASE 2 – RELEASE
 # ==================================================
 
 if st.session_state.phase == "release":
 
-    st.subheader("🎬 Release MV – Giám khảo chấm điểm")
+    st.subheader("🎬 Release MV – Giám khảo")
 
     narrative = st.slider("Câu chuyện",0.0,1.0,0.7)
     visual = st.slider("Hình ảnh",0.0,1.0,0.7)
     emotion = st.slider("Cảm xúc",0.0,1.0,0.7)
 
     if st.button("🚀 Ra mắt MV"):
-
         st.session_state.quality = (narrative + visual + emotion)/3
         st.session_state.phase = "market"
         st.rerun()
 
 # ==================================================
-# PHASE 3 – MARKET SIMULATION (REALISTIC VN)
+# PHASE 3 – MARKET
 # ==================================================
 
 if st.session_state.phase == "market":
@@ -199,9 +201,9 @@ if st.session_state.phase == "market":
     capital = st.session_state.cash
 
     audiences = {
-        "Gen Z": {"size": 2_000_000,"sensitivity":0.6},
-        "Mainstream": {"size":1_800_000,"sensitivity":0.5},
-        "Rap/Underground":{"size":1_200_000,"sensitivity":0.7}
+        "Gen Z": {"size":2_000_000,"sens":0.6},
+        "Mainstream": {"size":1_800_000,"sens":0.5},
+        "Rap": {"size":1_200_000,"sens":0.7}
     }
 
     results = []
@@ -213,24 +215,24 @@ if st.session_state.phase == "market":
 
         for group,data in audiences.items():
 
-            match_score = (
+            match = (
                 0.4*quality +
                 0.3*st.session_state.fame +
                 0.2*st.session_state.sentiment -
                 0.1*st.session_state.fatigue
             )
 
-            match_score = max(0,min(1,match_score))
+            match = max(0,min(1,match))
 
-            attention = data["size"] * 0.01 * match_score
-            ctr = 0.05 * data["sensitivity"] * quality
+            attention = data["size"] * 0.01 * match
+            ctr = 0.05 * data["sens"] * quality
             views = attention * ctr
 
-            revenue_stream = views * 12  # realistic VN RPM
-            merch_revenue = views * 0.01 * 80_000 * st.session_state.sentiment
+            revenue_stream = views * 12
+            merch = views * 0.01 * 80_000 * st.session_state.sentiment
 
             total_views += views
-            total_revenue += revenue_stream + merch_revenue
+            total_revenue += revenue_stream + merch
 
         capital += total_revenue
 
@@ -263,18 +265,3 @@ if st.session_state.phase == "market":
         st.plotly_chart(fig3,use_container_width=True)
 
     st.metric("💰 Vốn cuối 60 ngày",f"{int(capital):,} VND")
-
-    # ================= PASS / FAIL =================
-
-    fame_ok = st.session_state.fame > 0.9
-    trust_ok = st.session_state.trust > 0.8
-    sentiment_ok = st.session_state.sentiment > 0.8
-    revenue_ok = st.session_state.total_revenue_pre >= 500_000_000
-
-    st.divider()
-    st.subheader("🏁 Kết quả cuối")
-
-    if fame_ok and trust_ok and sentiment_ok and revenue_ok:
-        st.success("🎉 ĐỘI VƯỢT QUA MÔ PHỎNG!")
-    else:
-        st.error("❌ ĐỘI CHƯA ĐẠT YÊU CẦU.")
