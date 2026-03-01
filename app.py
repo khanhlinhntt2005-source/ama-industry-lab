@@ -56,7 +56,7 @@ if st.session_state.phase == "pre":
             "Collab",
             "Thuê Mentor (5M)",
             "Luyện Tập",
-            "Scandal PR"
+            "Scandal PR - Các học sinh sẽ bốc thăm ngẫu nhiên 1 ngày mà scandal bắt buộc xảy ra"
         ])
 
         if st.button("🎯 Thực hiện hành động hôm nay"):
