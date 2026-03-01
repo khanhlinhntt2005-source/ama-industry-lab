@@ -117,7 +117,7 @@ if st.session_state.phase == "pre":
             # ------------------------
             elif activity == "Scandal PR":
                 effect = {"fame":0.2,"trust":-0.2,"sentiment":-0.3,"fatigue":0.2}
-                st.error("Scandal xảy ra! Fame tăng nhưng Trust giảm mạnh.")
+                st.error("Scandal xảy ra! Danh tiếng tăng nhưng mức độ đáng tin cậy giảm mạnh.")
 
             # ------------------------
             # LUYỆN TẬP
@@ -178,7 +178,7 @@ if len(st.session_state.history_pre) > 0:
 
         fig2 = go.Figure()
         fig2.add_trace(go.Bar(x=df_pre["day"], y=df_pre["trust"]))
-        fig2.update_layout(title="Trust theo ngày", template="plotly_dark")
+        fig2.update_layout(title="Mức độ đáng tin cậy theo ngày", template="plotly_dark")
         st.plotly_chart(fig2, use_container_width=True)
 
     with colB:
@@ -188,7 +188,7 @@ if len(st.session_state.history_pre) > 0:
             y=df_pre["fame"],
             fill='tozeroy'
         ))
-        fig3.update_layout(title="Fame tăng trưởng", template="plotly_dark")
+        fig3.update_layout(title="Tăng trưởng Danh tiếng", template="plotly_dark")
         st.plotly_chart(fig3, use_container_width=True)
 
         fig4 = go.Figure(go.Indicator(
