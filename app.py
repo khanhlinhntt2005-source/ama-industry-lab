@@ -27,7 +27,7 @@ if "initialized" not in st.session_state:
 # HEADER
 # ==================================================
 
-st.title("🎬 Hệ thống Nghệ thuật Mô phỏng AMA - Block sản xuất MV")
+st.title("Hệ thống Nghệ thuật Mô phỏng AMA - Block sản xuất MV")
 
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("💰 Tiền", f"{int(st.session_state.cash):,} VND")
